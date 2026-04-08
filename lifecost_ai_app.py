@@ -468,27 +468,16 @@ elif inflation_expense_ratio > 80:
 else:
     st.success("✅ Your financial plan is still sustainable even after inflation adjustment.")
 
-# ---------------- OPTIONAL DATA TABLE ----------------
-st.markdown("---")
-st.markdown("## 📋 Expense Breakdown Table")
-st.dataframe(expense_df, use_container_width=True)
+# -----------------------------
+# Optional Dataset Upload
+# -----------------------------
+st.markdown("## 📂 Optional Dataset Viewer")
+uploaded_file = st.file_uploader("Upload an Excel file (optional)", type=["xlsx"])
 
-# ---------------- SAMPLE EXCEL FORMAT GUIDE ----------------
-st.markdown("## 📄 Excel Upload Format (Recommended Columns)")
-sample_excel_df = pd.DataFrame([{
-    "name": "Pugazh",
-    "monthly_income": 50000,
-    "rent": 15000,
-    "food": 7000,
-    "transport": 3000,
-    "utilities": 4000,
-    "entertainment": 2500,
-    "healthcare": 2000,
-    "other": 3000
-}])
-st.dataframe(sample_excel_df, use_container_width=True)
-
-# ---------------- FOOTER ----------------
-st.markdown("---")
-st.markdown("### 🌟 LifeCost AI helps you make smarter financial decisions with visual analytics, inflation intelligence, and premium dashboard insights.")
-st.caption("Developed for MBA Project Presentation | Streamlit + Python + Plotly")
+if uploaded_file is not None:
+    try:
+        df = pd.read_excel(uploaded_file)
+        st.success("Excel file uploaded successfully!")
+        st.dataframe(df, use_container_width=True)
+    except Exception as e:
+        st.error(f"Error reading file: {e}")
