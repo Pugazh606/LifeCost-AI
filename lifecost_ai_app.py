@@ -4,426 +4,491 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-# -----------------------------
-# Page Config
-# -----------------------------
-st.set_page_config(page_title="LifeCost AI", page_icon="💰", layout="wide")
+# ---------------- PAGE CONFIG ----------------
+st.set_page_config(
+    page_title="LifeCost AI - Smart Cost of Living Analyzer",
+    page_icon="💰",
+    layout="wide"
+)
 
-# -----------------------------
-# Custom CSS for Premium Design
-# -----------------------------
+# ---------------- CUSTOM CSS ----------------
 st.markdown("""
     <style>
     .main {
-        background-color: #f5f7fa;
+        background-color: #0E1117;
+        color: #ffffff;
     }
 
     .block-container {
         padding-top: 1rem;
-        padding-bottom: 2rem;
-        padding-left: 2rem;
-        padding-right: 2rem;
+        padding-bottom: 1rem;
     }
 
-    .header-box {
-        background: linear-gradient(135deg, #1f4e79, #4facfe);
-        padding: 25px;
-        border-radius: 18px;
-        color: white;
-        text-align: center;
-        box-shadow: 0px 6px 18px rgba(0,0,0,0.15);
-        margin-bottom: 20px;
+    /* Main headings */
+    h1 {
+        color: #ffffff !important;
+        font-weight: 800 !important;
     }
 
-    .metric-card {
-        background-color: white;
-        padding: 18px;
-        border-radius: 16px;
-        box-shadow: 0px 4px 14px rgba(0,0,0,0.08);
-        text-align: center;
-        margin-bottom: 15px;
+    h2 {
+        color: #ffffff !important;
+        font-weight: 700 !important;
     }
 
-    .section-box {
-        background-color: white;
-        padding: 20px;
-        border-radius: 18px;
-        box-shadow: 0px 4px 14px rgba(0,0,0,0.08);
-        margin-bottom: 20px;
+    h3 {
+        color: #facc15 !important;   /* Bright golden */
+        font-weight: 700 !important;
     }
 
-    .recommend-box {
-        background: #eef7ff;
-        padding: 15px;
-        border-left: 6px solid #4facfe;
+    h4, h5, h6 {
+        color: #fde68a !important;   /* Soft gold */
+        font-weight: 600 !important;
+    }
+
+    /* Normal text */
+    p, div, span, label {
+        color: #f9fafb !important;
+    }
+
+    /* Metric cards */
+    .stMetric {
+        background-color: #1f2937;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid #374151;
+        box-shadow: 0px 2px 8px rgba(0,0,0,0.25);
+    }
+
+    /* Sidebar text */
+    section[data-testid="stSidebar"] * {
+        color: #ffffff !important;
+    }
+
+    /* Dataframe styling fix */
+    .stDataFrame {
+        background-color: #111827 !important;
         border-radius: 10px;
-        margin-bottom: 10px;
-        font-size: 16px;
-    }
-
-    .small-note {
-        font-size: 14px;
-        color: #555;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# -----------------------------
-# Currency Options
-# -----------------------------
-currency_options = {
-    "INR (₹)": "₹",
-    "USD ($)": "$",
-    "EUR (€)": "€",
-    "GBP (£)": "£",
-    "JPY (¥)": "¥",
-    "AED (د.إ)": "د.إ",
-    "SGD (S$)": "S$",
-    "AUD (A$)": "A$",
-    "CAD (C$)": "C$",
-    "CNY (¥)": "¥"
-}
-
-# -----------------------------
-# Helper Functions
-# -----------------------------
-def calculate_budget_health_score(income, total_expense, savings, emi, entertainment):
-    savings_ratio = savings / income if income > 0 else 0
-    expense_ratio = total_expense / income if income > 0 else 1
-    emi_ratio = emi / income if income > 0 else 0
-    entertainment_ratio = entertainment / income if income > 0 else 0
-
-    score = 100
-
-    # Savings score
-    if savings_ratio >= 0.30:
-        score += 0
-    elif savings_ratio >= 0.20:
-        score -= 5
-    elif savings_ratio >= 0.10:
-        score -= 15
-    else:
-        score -= 30
-
-    # Expense burden
-    if expense_ratio > 0.90:
-        score -= 25
-    elif expense_ratio > 0.80:
-        score -= 15
-    elif expense_ratio > 0.70:
-        score -= 8
-
-    # EMI burden
-    if emi_ratio > 0.30:
-        score -= 20
-    elif emi_ratio > 0.20:
-        score -= 10
-    elif emi_ratio > 0.10:
-        score -= 5
-
-    # Entertainment burden
-    if entertainment_ratio > 0.10:
-        score -= 10
-    elif entertainment_ratio > 0.07:
-        score -= 5
-
-    return max(0, min(100, score))
-
-def generate_recommendations(income, savings, total_expense, emi, entertainment, food, rent):
-    recommendations = []
-    savings_ratio = savings / income if income > 0 else 0
-    emi_ratio = emi / income if income > 0 else 0
-    entertainment_ratio = entertainment / income if income > 0 else 0
-    food_ratio = food / income if income > 0 else 0
-    rent_ratio = rent / income if income > 0 else 0
-
-    if savings_ratio < 0.20:
-        recommendations.append("Increase your monthly savings target to at least 20% of your income.")
-    if emi_ratio > 0.25:
-        recommendations.append("Your EMI burden is high. Consider reducing or restructuring loans.")
-    if entertainment_ratio > 0.08:
-        recommendations.append("Entertainment spending is relatively high. Optimize non-essential expenses.")
-    if food_ratio > 0.20:
-        recommendations.append("Food expenses are high. Review grocery and dining habits.")
-    if rent_ratio > 0.35:
-        recommendations.append("Rent is above the recommended limit. Consider affordable housing options.")
-    if total_expense > income:
-        recommendations.append("Your expenses exceed your income. Immediate cost control is necessary.")
-    if not recommendations:
-        recommendations.append("Your budget looks healthy. Maintain this discipline and continue saving.")
-
-    return recommendations
-
-def forecast_expenses(total_expense, inflation_rate, months=12):
-    forecast = []
-    for month in range(1, months + 1):
-        future_expense = total_expense * ((1 + inflation_rate / 12) ** month)
-        forecast.append([month, future_expense])
-    return pd.DataFrame(forecast, columns=["Month", "Forecasted Expense"])
-
-def get_financial_status(score):
-    if score >= 80:
-        return "Excellent ✅"
-    elif score >= 65:
-        return "Good 👍"
-    elif score >= 50:
-        return "Moderate ⚠️"
-    else:
-        return "Risky ❌"
-
-# -----------------------------
-# Sidebar Inputs
-# -----------------------------
-st.sidebar.title("⚙️ LifeCost AI Settings")
-
-currency_label = st.sidebar.selectbox("Select Currency", list(currency_options.keys()))
-currency_symbol = currency_options[currency_label]
-
-name = st.sidebar.text_input("Name", "Pugazh")
-income = st.sidebar.number_input(f"Monthly Income ({currency_symbol})", min_value=0.0, value=45000.0, step=1000.0)
-rent = st.sidebar.number_input(f"Rent ({currency_symbol})", min_value=0.0, value=12000.0, step=500.0)
-food = st.sidebar.number_input(f"Food ({currency_symbol})", min_value=0.0, value=7000.0, step=500.0)
-transport = st.sidebar.number_input(f"Transport ({currency_symbol})", min_value=0.0, value=3000.0, step=500.0)
-healthcare = st.sidebar.number_input(f"Healthcare ({currency_symbol})", min_value=0.0, value=2000.0, step=500.0)
-emi = st.sidebar.number_input(f"EMI / Loans ({currency_symbol})", min_value=0.0, value=5000.0, step=500.0)
-education = st.sidebar.number_input(f"Education ({currency_symbol})", min_value=0.0, value=2500.0, step=500.0)
-utilities = st.sidebar.number_input(f"Utilities ({currency_symbol})", min_value=0.0, value=2500.0, step=500.0)
-entertainment = st.sidebar.number_input(f"Entertainment ({currency_symbol})", min_value=0.0, value=2000.0, step=500.0)
-other_expenses = st.sidebar.number_input(f"Other Expenses ({currency_symbol})", min_value=0.0, value=1500.0, step=500.0)
-inflation_rate = st.sidebar.slider("Annual Inflation Rate", min_value=0.0, max_value=0.20, value=0.06, step=0.01)
-
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔮 What-If Simulation")
-whatif_income_change = st.sidebar.slider("Income Change (%)", -50, 50, 0)
-whatif_expense_change = st.sidebar.slider("Expense Change (%)", -50, 50, 0)
-whatif_inflation_change = st.sidebar.slider("Inflation Change (%)", -10, 10, 0)
-
-# -----------------------------
-# Apply What-If
-# -----------------------------
-adjusted_income = income * (1 + whatif_income_change / 100)
-
-expense_items = [rent, food, transport, healthcare, emi, education, utilities, entertainment, other_expenses]
-adjusted_expense_items = [x * (1 + whatif_expense_change / 100) for x in expense_items]
-adjusted_inflation = max(0, inflation_rate + (whatif_inflation_change / 100))
-
-categories = ["Rent", "Food", "Transport", "Healthcare", "EMI", "Education", "Utilities", "Entertainment", "Other Expenses"]
-total_expense = sum(adjusted_expense_items)
-savings = adjusted_income - total_expense
-savings_ratio = (savings / adjusted_income) * 100 if adjusted_income > 0 else 0
-
-essential_expense = adjusted_expense_items[0] + adjusted_expense_items[1] + adjusted_expense_items[2] + adjusted_expense_items[3] + adjusted_expense_items[6]
-min_emergency_fund = essential_expense * 3
-ideal_emergency_fund = essential_expense * 6
-
-budget_score = calculate_budget_health_score(adjusted_income, total_expense, savings, adjusted_expense_items[4], adjusted_expense_items[7])
-financial_status = get_financial_status(budget_score)
-
-recommendations = generate_recommendations(
-    adjusted_income, savings, total_expense,
-    adjusted_expense_items[4], adjusted_expense_items[7],
-    adjusted_expense_items[1], adjusted_expense_items[0]
-)
-
-forecast_df = forecast_expenses(total_expense, adjusted_inflation, months=12)
-
-expense_df = pd.DataFrame({
-    "Category": categories,
-    "Amount": adjusted_expense_items
-})
-
-# -----------------------------
-# Header
-# -----------------------------
-st.markdown(f"""
-    <div class="header-box">
-        <h1>💰 LifeCost AI</h1>
-        <h3>Smart Personal Inflation & Budget Decision Support System</h3>
-        <p>Welcome, <b>{name}</b> | Global Financial Planning Dashboard 🌍</p>
-    </div>
-""", unsafe_allow_html=True)
-
-# -----------------------------
-# KPI Metrics
-# -----------------------------
-st.markdown("## 📌 Key Financial Overview")
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    st.markdown(f'<div class="metric-card"><h4>Income</h4><h2>{currency_symbol}{adjusted_income:,.2f}</h2></div>', unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f'<div class="metric-card"><h4>Total Expense</h4><h2>{currency_symbol}{total_expense:,.2f}</h2></div>', unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f'<div class="metric-card"><h4>Monthly Savings</h4><h2>{currency_symbol}{savings:,.2f}</h2></div>', unsafe_allow_html=True)
-
-with col4:
-    st.markdown(f'<div class="metric-card"><h4>Savings Ratio</h4><h2>{savings_ratio:.2f}%</h2></div>', unsafe_allow_html=True)
-
-# -----------------------------
-# Score + Status
-# -----------------------------
-st.markdown("## 📊 Budget Health Score & Financial Status")
-col5, col6 = st.columns([1, 1])
-
-with col5:
-    score_color = "green" if budget_score >= 75 else "orange" if budget_score >= 50 else "red"
-    fig_gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=budget_score,
-        title={'text': "Budget Health Score"},
-        gauge={
-            'axis': {'range': [0, 100]},
-            'bar': {'color': score_color},
-            'steps': [
-                {'range': [0, 50], 'color': "#ffcccc"},
-                {'range': [50, 75], 'color': "#fff3cd"},
-                {'range': [75, 100], 'color': "#d4edda"}
-            ]
-        }
-    ))
-    st.plotly_chart(fig_gauge, use_container_width=True)
-
-with col6:
-    st.markdown(f"""
-        <div class="section-box">
-            <h3>📍 Financial Status</h3>
-            <h2>{financial_status}</h2>
-            <p class="small-note">This status is based on your savings ratio, EMI burden, and overall expense behavior.</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown(f"""
-        <div class="section-box">
-            <h3>🚨 Emergency Fund Recommendation</h3>
-            <p><b>Minimum (3 Months):</b> {currency_symbol}{min_emergency_fund:,.2f}</p>
-            <p><b>Ideal (6 Months):</b> {currency_symbol}{ideal_emergency_fund:,.2f}</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-# -----------------------------
-# Expense Analysis Charts
-# -----------------------------
-st.markdown("## 📈 Expense Analysis Dashboard")
-
-col7, col8 = st.columns(2)
-
-with col7:
-    fig_pie = px.pie(expense_df, names="Category", values="Amount", hole=0.4, title="Expense Distribution (Donut Chart)")
-    st.plotly_chart(fig_pie, use_container_width=True)
-
-with col8:
-    fig_bar = px.bar(expense_df, x="Category", y="Amount", title="Category-wise Expense Comparison", text_auto=".2s")
-    fig_bar.update_layout(xaxis_tickangle=-30)
-    st.plotly_chart(fig_bar, use_container_width=True)
-
-# -----------------------------
-# Savings vs Expense
-# -----------------------------
-st.markdown("## 💸 Savings vs Expenses")
-
-savings_expense_df = pd.DataFrame({
-    "Type": ["Expenses", "Savings"],
-    "Amount": [total_expense, max(savings, 0)]
-})
-
-col9, col10 = st.columns(2)
-
-with col9:
-    fig_donut = px.pie(
-        savings_expense_df,
-        names="Type",
-        values="Amount",
-        hole=0.5,
-        title="Savings vs Expenses"
+# ---------------- HELPER FUNCTION FOR CHART THEME ----------------
+def apply_chart_theme(fig):
+    fig.update_layout(
+        paper_bgcolor="#1a1f2e",
+        plot_bgcolor="#1a1f2e",
+        font=dict(color="white"),
+        title_font=dict(color="white"),
+        xaxis=dict(
+            title_font=dict(color="white"),
+            tickfont=dict(color="white"),
+            gridcolor="rgba(255,255,255,0.08)"
+        ),
+        yaxis=dict(
+            title_font=dict(color="white"),
+            tickfont=dict(color="white"),
+            gridcolor="rgba(255,255,255,0.08)"
+        ),
+        legend=dict(font=dict(color="white"))
     )
-    st.plotly_chart(fig_donut, use_container_width=True)
+    return fig
 
-with col10:
-    current_vs_future = pd.DataFrame({
-        "Scenario": ["Current Monthly Expense", "Projected 12th Month Expense"],
-        "Amount": [total_expense, forecast_df.iloc[-1]["Forecasted Expense"]]
-    })
-    fig_compare = px.bar(current_vs_future, x="Scenario", y="Amount", title="Current vs Future Expense Comparison", text_auto=".2s")
-    st.plotly_chart(fig_compare, use_container_width=True)
+# ---------------- TITLE ----------------
+st.title("💰 LifeCost AI - Smart Cost of Living Analyzer")
+st.markdown("### Analyze your monthly budget, spending habits, inflation impact, and financial health intelligently")
 
-# -----------------------------
-# Radar Chart
-# -----------------------------
-st.markdown("## 🕸️ Spending Pattern Radar Chart")
+# ---------------- SIDEBAR INPUTS ----------------
+st.sidebar.header("📥 Enter Monthly Financial Details")
 
-fig_radar = go.Figure()
-fig_radar.add_trace(go.Scatterpolar(
-    r=adjusted_expense_items,
-    theta=categories,
-    fill='toself',
-    name='Spending Pattern'
-))
-fig_radar.update_layout(
-    polar=dict(radialaxis=dict(visible=True)),
-    showlegend=False,
-    title="Spending Pattern Across Categories"
+# NEW: Name input added
+user_name = st.sidebar.text_input("👤 Enter Your Name", value="Pugazh")
+
+currency = st.sidebar.selectbox("Select Currency", ["INR (₹)", "USD ($)", "EUR (€)", "GBP (£)"])
+currency_symbol = currency.split("(")[1].replace(")", "")
+
+monthly_income = st.sidebar.number_input("Monthly Income", min_value=0.0, value=50000.0, step=1000.0)
+rent = st.sidebar.number_input("Rent / Housing", min_value=0.0, value=15000.0, step=500.0)
+food = st.sidebar.number_input("Food / Groceries", min_value=0.0, value=7000.0, step=500.0)
+transport = st.sidebar.number_input("Transport", min_value=0.0, value=3000.0, step=500.0)
+utilities = st.sidebar.number_input("Utilities / Bills", min_value=0.0, value=4000.0, step=500.0)
+entertainment = st.sidebar.number_input("Entertainment", min_value=0.0, value=2500.0, step=500.0)
+healthcare = st.sidebar.number_input("Healthcare", min_value=0.0, value=2000.0, step=500.0)
+other = st.sidebar.number_input("Other Expenses", min_value=0.0, value=3000.0, step=500.0)
+
+# ---------------- INFLATION RATE INPUT ----------------
+st.sidebar.markdown("---")
+st.sidebar.subheader("📈 Inflation Adjustment")
+
+inflation_rate = st.sidebar.slider(
+    "Select Inflation Rate (%)",
+    min_value=0.0,
+    max_value=20.0,
+    value=6.0,
+    step=0.5
 )
-st.plotly_chart(fig_radar, use_container_width=True)
 
-# -----------------------------
-# Forecast Chart
-# -----------------------------
-st.markdown("## 📅 12-Month Inflation-Based Forecast")
+# ---------------- OPTIONAL EXCEL UPLOAD ----------------
+st.sidebar.markdown("---")
+st.sidebar.subheader("📂 Upload Excel File (Optional)")
+uploaded_file = st.sidebar.file_uploader("Upload Excel File", type=["xlsx", "xls", "csv"])
 
-fig_line = px.line(
-    forecast_df,
-    x="Month",
-    y="Forecasted Expense",
-    markers=True,
-    title="Projected Monthly Expenses Over the Next 12 Months"
-)
-st.plotly_chart(fig_line, use_container_width=True)
-
-# -----------------------------
-# Forecast Table
-# -----------------------------
-st.markdown("## 📋 Forecast Table")
-st.dataframe(forecast_df, use_container_width=True)
-
-# -----------------------------
-# Smart Recommendations
-# -----------------------------
-st.markdown("## 🤖 Smart Recommendations")
-for i, rec in enumerate(recommendations, 1):
-    st.markdown(f'<div class="recommend-box"><b>{i}.</b> {rec}</div>', unsafe_allow_html=True)
-
-# -----------------------------
-# Financial Summary
-# -----------------------------
-st.markdown("## 📝 Financial Summary")
-st.markdown(f"""
-<div class="section-box">
-<b>User Name:</b> {name}<br>
-<b>Selected Currency:</b> {currency_label}<br>
-<b>Adjusted Monthly Income:</b> {currency_symbol}{adjusted_income:,.2f}<br>
-<b>Total Monthly Expense:</b> {currency_symbol}{total_expense:,.2f}<br>
-<b>Monthly Savings:</b> {currency_symbol}{savings:,.2f}<br>
-<b>Savings Ratio:</b> {savings_ratio:.2f}%<br>
-<b>Budget Health Score:</b> {budget_score}/100<br>
-<b>Financial Status:</b> {financial_status}<br>
-<b>Minimum Emergency Fund:</b> {currency_symbol}{min_emergency_fund:,.2f}<br>
-<b>Ideal Emergency Fund:</b> {currency_symbol}{ideal_emergency_fund:,.2f}<br>
-<b>Applied Annual Inflation Rate:</b> {adjusted_inflation * 100:.2f}%<br>
-</div>
-""", unsafe_allow_html=True)
-
-# -----------------------------
-# Optional Dataset Upload
-# -----------------------------
-st.markdown("## 📂 Optional Dataset Viewer")
-uploaded_file = st.file_uploader("Upload an Excel file (optional)", type=["xlsx"])
+excel_data_loaded = False
 
 if uploaded_file is not None:
     try:
-        df = pd.read_excel(uploaded_file)
-        st.success("Excel file uploaded successfully!")
-        st.dataframe(df, use_container_width=True)
+        if uploaded_file.name.endswith(".csv"):
+            df_uploaded = pd.read_csv(uploaded_file)
+        else:
+            df_uploaded = pd.read_excel(uploaded_file)
+
+        st.sidebar.success("✅ Excel file uploaded successfully!")
+        st.sidebar.write("Columns detected:", list(df_uploaded.columns))
+
+        # Try to auto-map first row if matching columns exist
+        cols_lower = [col.lower() for col in df_uploaded.columns]
+
+        if "monthly_income" in cols_lower:
+            monthly_income = float(df_uploaded.iloc[0, cols_lower.index("monthly_income")])
+        if "rent" in cols_lower:
+            rent = float(df_uploaded.iloc[0, cols_lower.index("rent")])
+        if "food" in cols_lower:
+            food = float(df_uploaded.iloc[0, cols_lower.index("food")])
+        if "transport" in cols_lower:
+            transport = float(df_uploaded.iloc[0, cols_lower.index("transport")])
+        if "utilities" in cols_lower:
+            utilities = float(df_uploaded.iloc[0, cols_lower.index("utilities")])
+        if "entertainment" in cols_lower:
+            entertainment = float(df_uploaded.iloc[0, cols_lower.index("entertainment")])
+        if "healthcare" in cols_lower:
+            healthcare = float(df_uploaded.iloc[0, cols_lower.index("healthcare")])
+        if "other" in cols_lower:
+            other = float(df_uploaded.iloc[0, cols_lower.index("other")])
+        if "name" in cols_lower:
+            user_name = str(df_uploaded.iloc[0, cols_lower.index("name")])
+
+        excel_data_loaded = True
+
     except Exception as e:
-        st.error(f"Error reading file: {e}")
+        st.sidebar.error(f"❌ Error reading file: {e}")
+
+# ---------------- CALCULATIONS ----------------
+base_expenses = rent + food + transport + utilities + entertainment + healthcare + other
+inflation_multiplier = 1 + (inflation_rate / 100)
+inflation_adjusted_expenses = base_expenses * inflation_multiplier
+monthly_savings = monthly_income - base_expenses
+inflation_adjusted_savings = monthly_income - inflation_adjusted_expenses
+
+savings_rate = (monthly_savings / monthly_income * 100) if monthly_income > 0 else 0
+expense_ratio = (base_expenses / monthly_income * 100) if monthly_income > 0 else 0
+inflation_expense_ratio = (inflation_adjusted_expenses / monthly_income * 100) if monthly_income > 0 else 0
+
+# Budget health score (0 to 100)
+budget_health_score = max(0, min(100, savings_rate))
+
+# ---------------- PERSONALIZED GREETING ----------------
+st.markdown(f"## 👋 Welcome, {user_name}!")
+
+if excel_data_loaded:
+    st.info("📂 Your uploaded Excel data has been applied to the dashboard automatically.")
+
+# ---------------- METRICS ----------------
+st.markdown("## 📌 Financial Summary")
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric("Monthly Income", f"{currency_symbol}{monthly_income:,.2f}")
+
+with col2:
+    st.metric("Base Expenses", f"{currency_symbol}{base_expenses:,.2f}")
+
+with col3:
+    st.metric("Monthly Savings", f"{currency_symbol}{monthly_savings:,.2f}")
+
+with col4:
+    st.metric("Savings Rate", f"{savings_rate:.2f}%")
+
+# ---------------- INFLATION METRICS ----------------
+st.markdown("## 📈 Inflation Impact Summary")
+
+col5, col6, col7, col8 = st.columns(4)
+
+with col5:
+    st.metric("Inflation Rate", f"{inflation_rate:.2f}%")
+
+with col6:
+    st.metric("Inflation Adjusted Expenses", f"{currency_symbol}{inflation_adjusted_expenses:,.2f}")
+
+with col7:
+    st.metric("Adjusted Savings", f"{currency_symbol}{inflation_adjusted_savings:,.2f}")
+
+with col8:
+    st.metric("Adjusted Expense Ratio", f"{inflation_expense_ratio:.2f}%")
+
+# ---------------- DATAFRAME FOR EXPENSES ----------------
+expense_df = pd.DataFrame({
+    "Category": ["Rent", "Food", "Transport", "Utilities", "Entertainment", "Healthcare", "Other"],
+    "Amount": [rent, food, transport, utilities, entertainment, healthcare, other]
+})
+
+expense_df["Inflation Adjusted Amount"] = expense_df["Amount"] * inflation_multiplier
+expense_df["Amount"] = pd.to_numeric(expense_df["Amount"], errors="coerce").fillna(0)
+expense_df["Inflation Adjusted Amount"] = pd.to_numeric(expense_df["Inflation Adjusted Amount"], errors="coerce").fillna(0)
+
+# ---------------- CHARTS SECTION ----------------
+st.markdown("---")
+st.markdown("## 📊 Financial Analytics Dashboard")
+
+# Row 1: Key Overview + Expense Distribution
+colA, colB = st.columns(2)
+
+with colA:
+    st.markdown("### 📊 Key Financial Overview")
+    overview_df = pd.DataFrame({
+        "Metric": ["Income", "Base Expenses", "Inflation Adjusted Expenses", "Savings", "Adjusted Savings"],
+        "Amount": [monthly_income, base_expenses, inflation_adjusted_expenses, monthly_savings, inflation_adjusted_savings]
+    })
+
+    fig_overview = px.bar(
+        overview_df,
+        x="Metric",
+        y="Amount",
+        text="Amount",
+        title="Key Financial Overview",
+        color="Metric",
+        color_discrete_sequence=["#facc15", "#fb923c", "#f87171", "#4ade80", "#60a5fa"]
+    )
+    fig_overview.update_traces(
+        texttemplate='%{text:.2f}',
+        textposition='outside',
+        textfont_color="white"
+    )
+    fig_overview.update_layout(height=430, showlegend=False)
+    fig_overview = apply_chart_theme(fig_overview)
+    st.plotly_chart(fig_overview, use_container_width=True)
+
+with colB:
+    st.markdown("### 🥧 Expense Distribution")
+    pie_data = expense_df[expense_df["Amount"] > 0]
+
+    if pie_data.empty:
+        st.warning("No expense data available for pie chart.")
+    else:
+        pie_chart = px.pie(
+            pie_data,
+            names="Category",
+            values="Amount",
+            hole=0.45,
+            title="Expense Distribution",
+            color_discrete_sequence=px.colors.sequential.Sunset
+        )
+        pie_chart.update_traces(
+            textfont=dict(color="white"),
+            insidetextfont=dict(color="white"),
+            outsidetextfont=dict(color="white")
+        )
+        pie_chart = apply_chart_theme(pie_chart)
+        st.plotly_chart(pie_chart, use_container_width=True)
+
+# Row 2: Expense Comparison + Budget Health Gauge
+colC, colD = st.columns(2)
+
+with colC:
+    st.markdown("### 📈 Category-wise Expense Analysis")
+    fig_expense = px.bar(
+        expense_df.sort_values("Amount", ascending=False),
+        x="Category",
+        y=["Amount", "Inflation Adjusted Amount"],
+        barmode="group",
+        text_auto=".2f",
+        title="Base vs Inflation Adjusted Expenses",
+        color_discrete_sequence=["#f59e0b", "#60a5fa"]
+    )
+    fig_expense.update_layout(height=450)
+    fig_expense = apply_chart_theme(fig_expense)
+    st.plotly_chart(fig_expense, use_container_width=True)
+
+with colD:
+    st.markdown("### 🎯 Budget Health Score")
+    gauge = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=budget_health_score,
+        title={"text": "Budget Health Score (%)", "font": {"color": "white"}},
+        number={"font": {"color": "white"}},
+        gauge={
+            "axis": {"range": [0, 100], "tickcolor": "white"},
+            "bar": {"color": "#22c55e"},
+            "bgcolor": "#1a1f2e",
+            "borderwidth": 2,
+            "bordercolor": "white",
+            "steps": [
+                {"range": [0, 40], "color": "#7f1d1d"},
+                {"range": [40, 70], "color": "#78350f"},
+                {"range": [70, 100], "color": "#14532d"}
+            ]
+        }
+    ))
+    gauge.update_layout(
+        paper_bgcolor="#1a1f2e",
+        font={"color": "white"},
+        height=450
+    )
+    st.plotly_chart(gauge, use_container_width=True)
+
+# Row 3: Line Comparison
+st.markdown("### 📉 Income vs Expense vs Savings Comparison")
+comparison_df = pd.DataFrame({
+    "Financial Metric": ["Income", "Base Expenses", "Inflation Expenses", "Savings", "Adjusted Savings"],
+    "Value": [monthly_income, base_expenses, inflation_adjusted_expenses, monthly_savings, inflation_adjusted_savings]
+})
+
+fig_compare = px.line(
+    comparison_df,
+    x="Financial Metric",
+    y="Value",
+    markers=True,
+    text="Value",
+    title="Income vs Expenses vs Savings",
+    color_discrete_sequence=["#facc15"]
+)
+fig_compare.update_traces(textposition="top center", textfont_color="white", line=dict(width=4))
+fig_compare.update_layout(height=450)
+fig_compare = apply_chart_theme(fig_compare)
+st.plotly_chart(fig_compare, use_container_width=True)
+
+# Row 4: Radar Chart
+st.markdown("### 🕸️ Expense Pattern Radar Chart")
+
+fig_radar = go.Figure()
+fig_radar.add_trace(go.Scatterpolar(
+    r=expense_df["Amount"],
+    theta=expense_df["Category"],
+    fill='toself',
+    name='Base Expenses',
+    line=dict(color='#f59e0b')
+))
+fig_radar.add_trace(go.Scatterpolar(
+    r=expense_df["Inflation Adjusted Amount"],
+    theta=expense_df["Category"],
+    fill='toself',
+    name='Inflation Adjusted',
+    line=dict(color='#60a5fa')
+))
+
+fig_radar.update_layout(
+    polar=dict(
+        bgcolor="#1a1f2e",
+        radialaxis=dict(
+            visible=True,
+            tickfont=dict(color="white"),
+            gridcolor="rgba(255,255,255,0.08)"
+        ),
+        angularaxis=dict(
+            tickfont=dict(color="white"),
+            gridcolor="rgba(255,255,255,0.08)"
+        )
+    ),
+    paper_bgcolor="#1a1f2e",
+    font=dict(color="white"),
+    title="Expense Distribution Radar Analysis",
+    height=500
+)
+st.plotly_chart(fig_radar, use_container_width=True)
+
+# Row 5: Savings vs Expense Ratio Scatter
+st.markdown("### 🔍 Savings vs Expense Ratio Insight")
+insight_df = pd.DataFrame({
+    "Type": ["Savings Rate", "Expense Ratio", "Inflation Expense Ratio"],
+    "Percentage": [savings_rate, expense_ratio, inflation_expense_ratio]
+})
+
+fig_scatter = px.scatter(
+    insight_df,
+    x="Type",
+    y="Percentage",
+    size="Percentage",
+    color="Type",
+    text="Percentage",
+    title="Savings Rate vs Expense Ratios",
+    color_discrete_sequence=["#4ade80", "#fb923c", "#60a5fa"]
+)
+fig_scatter.update_traces(textposition="top center", textfont_color="white")
+fig_scatter.update_layout(height=450, showlegend=False)
+fig_scatter = apply_chart_theme(fig_scatter)
+st.plotly_chart(fig_scatter, use_container_width=True)
+
+# Row 6: Waterfall Chart
+st.markdown("### 🌊 Income to Savings Waterfall Analysis")
+
+waterfall = go.Figure(go.Waterfall(
+    name="Financial Flow",
+    orientation="v",
+    measure=["absolute", "relative", "relative", "relative", "relative", "relative", "relative", "relative", "total"],
+    x=["Income", "Rent", "Food", "Transport", "Utilities", "Entertainment", "Healthcare", "Other", "Savings"],
+    y=[monthly_income, -rent, -food, -transport, -utilities, -entertainment, -healthcare, -other, 0],
+    connector={"line": {"color": "white"}},
+    increasing={"marker": {"color": "#22c55e"}},
+    decreasing={"marker": {"color": "#ef4444"}},
+    totals={"marker": {"color": "#f59e0b"}}
+))
+waterfall.update_layout(
+    title="How Income Converts into Savings",
+    paper_bgcolor="#1a1f2e",
+    plot_bgcolor="#1a1f2e",
+    font=dict(color="white"),
+    height=500
+)
+st.plotly_chart(waterfall, use_container_width=True)
+
+# ---------------- AI RECOMMENDATIONS ----------------
+st.markdown("---")
+st.markdown("## 🤖 AI-Based Financial Recommendations")
+
+if savings_rate >= 30:
+    st.success("✅ Excellent! Your savings rate is strong. You are maintaining a healthy financial lifestyle.")
+elif 15 <= savings_rate < 30:
+    st.info("ℹ️ Good job! Your savings are decent, but there is room for improvement by optimizing optional expenses.")
+else:
+    st.warning("⚠️ Your savings rate is low. Consider reducing entertainment, transport, or other discretionary expenses.")
+
+# Detailed recommendations
+highest_expense = expense_df.loc[expense_df["Amount"].idxmax(), "Category"]
+highest_expense_value = expense_df["Amount"].max()
+
+st.markdown("### 🔎 Insights")
+st.write(f"- **{user_name}**, your highest spending category is **{highest_expense}** ({currency_symbol}{highest_expense_value:,.2f}).")
+st.write(f"- Your expense ratio is **{expense_ratio:.2f}%** of your income.")
+st.write(f"- Your inflation-adjusted expense ratio is **{inflation_expense_ratio:.2f}%**.")
+st.write(f"- Your current budget health score is **{budget_health_score:.2f}/100**.")
+
+if inflation_adjusted_savings < 0:
+    st.error("🚨 After inflation adjustment, your budget may go into deficit. You should reduce discretionary expenses immediately.")
+elif inflation_expense_ratio > 80:
+    st.warning("⚠️ Inflation is significantly increasing your expense burden. Consider revising your monthly budget.")
+else:
+    st.success("✅ Your financial plan is still sustainable even after inflation adjustment.")
+
+# ---------------- OPTIONAL DATA TABLE ----------------
+st.markdown("---")
+st.markdown("## 📋 Expense Breakdown Table")
+st.dataframe(expense_df, use_container_width=True)
+
+# ---------------- SAMPLE EXCEL FORMAT GUIDE ----------------
+st.markdown("## 📄 Excel Upload Format (Recommended Columns)")
+sample_excel_df = pd.DataFrame([{
+    "name": "Pugazh",
+    "monthly_income": 50000,
+    "rent": 15000,
+    "food": 7000,
+    "transport": 3000,
+    "utilities": 4000,
+    "entertainment": 2500,
+    "healthcare": 2000,
+    "other": 3000
+}])
+st.dataframe(sample_excel_df, use_container_width=True)
+
+# ---------------- FOOTER ----------------
+st.markdown("---")
+st.markdown("### 🌟 LifeCost AI helps you make smarter financial decisions with visual analytics, inflation intelligence, and premium dashboard insights.")
+st.caption("Developed for MBA Project Presentation | Streamlit + Python + Plotly")
