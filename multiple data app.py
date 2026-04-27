@@ -1,274 +1,234 @@
+# ==========================================================
+# LifeCost AI - COMPLETE FINAL FULL CODE
+# Final Version with BIG Line Chart + BIG Scatter Plot
+# BIG Radar Chart + BIG Waterfall Chart
+# Save as: lifecost_ai_app.py
+# Run: streamlit run lifecost_ai_app.py
+# ==========================================================
+
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(
-    page_title="LifeCost AI - Smart Cost of Living Analyzer",
-    page_icon="💰",
-    layout="wide"
-)
-
-# ---------------- CUSTOM CSS ----------------
+# ==========================================================
+# PAGE CONFIG
+# ==========================================================
 st.markdown("""
-    <style>
-    .main {
-        background-color: #0E1117;
-        color: #ffffff;
-    }
+<style>
 
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-    }
+/* BACKGROUND GRADIENT */
+.main {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    color: white;
+}
 
-    /* Main headings */
-    h1 {
-        color: #ffffff !important;
-        font-weight: 800 !important;
-    }
+/* GLASS CARD EFFECT */
+.stMetric, .css-1r6slb0, .css-12w0qpk {
+    background: rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 16px;
+    padding: 15px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
 
-    h2 {
-        color: #ffffff !important;
-        font-weight: 700 !important;
-    }
+/* SECTION HEADINGS */
+h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+}
 
-    h3 {
-        color: #facc15 !important;   /* Bright golden */
-        font-weight: 700 !important;
-    }
+h2 {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin-top: 10px;
+}
 
-    h4, h5, h6 {
-        color: #fde68a !important;   /* Soft gold */
-        font-weight: 600 !important;
-    }
+h3 {
+    font-size: 1.3rem;
+    font-weight: 500;
+}
 
-    /* Normal text */
-    p, div, span, label {
-        color: #f9fafb !important;
-    }
+/* SIDEBAR GLASS */
+section[data-testid="stSidebar"] {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(255,255,255,0.1);
+}
 
-    /* Metric cards */
-    .stMetric {
-        background-color: #1f2937;
-        padding: 12px;
-        border-radius: 12px;
-        border: 1px solid #374151;
-        box-shadow: 0px 2px 8px rgba(0,0,0,0.25);
-    }
+/* BUTTON STYLE */
+.stButton>button {
+    background: rgba(255,255,255,0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+}
 
-    /* Sidebar text */
-    section[data-testid="stSidebar"] * {
-        color: #ffffff !important;
-    }
+/* TABLE GLASS */
+.css-1d391kg {
+    background: rgba(255,255,255,0.05) !important;
+    border-radius: 10px;
+}
 
-    /* Dataframe styling fix */
-    .stDataFrame {
-        background-color: #111827 !important;
-        border-radius: 10px;
-    }
-    </style>
+/* SCROLLBAR */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+}
+
+</style>
 """, unsafe_allow_html=True)
 
-# ---------------- HELPER FUNCTION FOR CHART THEME ----------------
-def apply_chart_theme(fig):
+# ==========================================================
+# STYLE FUNCTION
+# ==========================================================
+def style(fig, h=420):
     fig.update_layout(
-        paper_bgcolor="#1a1f2e",
-        plot_bgcolor="#1a1f2e",
+        height=h,
+        paper_bgcolor="#0E1117",
+        plot_bgcolor="#111827",
         font=dict(color="white"),
-        title_font=dict(color="white"),
-        xaxis=dict(
-            title_font=dict(color="white"),
-            tickfont=dict(color="white"),
-            gridcolor="rgba(255,255,255,0.08)"
-        ),
-        yaxis=dict(
-            title_font=dict(color="white"),
-            tickfont=dict(color="white"),
-            gridcolor="rgba(255,255,255,0.08)"
-        ),
-        legend=dict(font=dict(color="white"))
+        title_font=dict(size=18,color="white"),
+        margin=dict(l=20,r=20,t=60,b=20)
     )
     return fig
+
+# ==========================================================
+# SIDEBAR
+# ==========================================================
+st.sidebar.title("📥 Manual Entry / Upload Panel")
+
+currency = st.sidebar.selectbox(
+    "💱 Select Currency",
+    ["INR (₹)", "USD ($)", "EUR (€)", "GBP (£)", "JPY (¥)"]
+)
+symbol = currency.split("(")[1].replace(")", "")
+
+uploaded_file = st.sidebar.file_uploader(
+    "📂 Upload Excel / CSV File",
+    type=["xlsx","csv"]
+)
+
+# ==========================================================
+# DEFAULT VALUES
+# ==========================================================
+name = "Pugazh"
+income = 50000.0
+rent = 15000.0
+food = 7000.0
+transport = 3000.0
+utilities = 4000.0
+entertainment = 2500.0
+healthcare = 2000.0
+other = 1500.0
+
+# ==========================================================
+# FILE READ
+# ==========================================================
+df = None
+
+if uploaded_file is not None:
+    try:
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
+
+        st.sidebar.success("✅ File Uploaded")
+
+        if "Name" in df.columns:
+            selected_name = st.sidebar.selectbox(
+                "👤 Select Person",
+                df["Name"].astype(str).unique()
+            )
+
+            row = df[df["Name"].astype(str)==selected_name].iloc[0]
+
+            name = selected_name
+            income = float(row.get("Income", income))
+            rent = float(row.get("Rent", rent))
+            food = float(row.get("Food", food))
+            transport = float(row.get("Transport", transport))
+            utilities = float(row.get("Utilities", utilities))
+            entertainment = float(row.get("Entertainment", entertainment))
+            healthcare = float(row.get("Healthcare", healthcare))
+            other = float(row.get("Other", other))
+
+    except:
+        st.sidebar.error("Invalid file format")
+
+# ==========================================================
+# MANUAL ENTRY
+# ==========================================================
+name = st.sidebar.text_input("👤 Name", value=name)
+income = st.sidebar.number_input("💰 Monthly Income", value=income)
+rent = st.sidebar.number_input("🏠 Rent", value=rent)
+food = st.sidebar.number_input("🍔 Food", value=food)
+transport = st.sidebar.number_input("🚗 Transport", value=transport)
+utilities = st.sidebar.number_input("💡 Utilities", value=utilities)
+entertainment = st.sidebar.number_input("🎬 Entertainment", value=entertainment)
+healthcare = st.sidebar.number_input("🏥 Healthcare", value=healthcare)
+other = st.sidebar.number_input("📦 Other", value=other)
+
+# ==========================================================
+# INFLATION
+# ==========================================================
+st.sidebar.markdown("---")
+st.sidebar.subheader("📈 Inflation Controls")
+
+past_inf = st.sidebar.slider("Past Inflation %",0.0,20.0,4.0,0.1)
+current_inf = st.sidebar.slider("Current Inflation %",0.0,20.0,6.0,0.1)
+future_inf = st.sidebar.slider("Expected Future Inflation %",0.0,20.0,8.0,0.1)
+
+# ==========================================================
+# CALCULATIONS
+# ==========================================================
+base_expense = rent+food+transport+utilities+entertainment+healthcare+other
+past_expense = base_expense/(1+current_inf/100)*(1+past_inf/100)
+future_expense = base_expense*(1+future_inf/100)
+
+savings = income-base_expense
+savings_rate = (savings/income*100) if income>0 else 0
+expense_ratio = (base_expense/income*100) if income>0 else 0
+health_score = max(0,min(100,savings_rate))
+
+expense_df = pd.DataFrame({
+"Category":["Rent","Food","Transport","Utilities","Entertainment","Healthcare","Other"],
+"Amount":[rent,food,transport,utilities,entertainment,healthcare,other]
+})
 
 # ---------------- TITLE ----------------
 st.title("💰 LifeCost AI - Smart Cost of Living Analyzer")
 st.markdown("### Analyze your monthly budget, spending habits, inflation impact, and financial health intelligently")
 
-# ---------------- SIDEBAR INPUTS ----------------
-input_mode = st.sidebar.radio(
-    "Choose Data Entry Mode",
-    ["Manual Entry", "Excel Upload"]
-)
-
-if input_mode == "Manual Entry":
-
-    st.sidebar.header("📥 Enter Monthly Financial Details")
-
-    user_name = st.sidebar.text_input("👤 Enter Your Name", value="Pugazh")
-
-    currency = st.sidebar.selectbox("Select Currency", ["INR (₹)", "USD ($)", "EUR (€)", "GBP (£)"])
-    currency_symbol = currency.split("(")[1].replace(")", "")
-
-    monthly_income = st.sidebar.number_input("Monthly Income", 0.0, 50000.0, 50000.0)
-    rent = st.sidebar.number_input("Rent", 0.0, 20000.0, 15000.0)
-    food = st.sidebar.number_input("Food", 0.0, 10000.0, 7000.0)
-    transport = st.sidebar.number_input("Transport", 0.0, 5000.0, 3000.0)
-    utilities = st.sidebar.number_input("Utilities", 0.0, 5000.0, 4000.0)
-    entertainment = st.sidebar.number_input("Entertainment", 0.0, 5000.0, 2500.0)
-    healthcare = st.sidebar.number_input("Healthcare", 0.0, 5000.0, 2000.0)
-    other = st.sidebar.number_input("Other", 0.0, 5000.0, 3000.0)
-
-elif input_mode == "Excel Upload":
-
-    uploaded_file = st.sidebar.file_uploader(
-        "Upload Excel File",
-        type=["xlsx", "xls", "csv"],
-        key="excel_uploader"
-    )
-
-    if uploaded_file is not None:
-
-        if uploaded_file.name.endswith(".csv"):
-            df_uploaded = pd.read_csv(uploaded_file)
-        else:
-            df_uploaded = pd.read_excel(uploaded_file)
-
-        df_uploaded.columns = df_uploaded.columns.str.lower().str.strip()
-
-        selected_name = st.sidebar.selectbox(
-            "👤 Select Name",
-            df_uploaded["name"].dropna().unique()
-        )
-
-        user_row = df_uploaded[df_uploaded["name"] == selected_name].iloc[0]
-
-        def get(col):
-            return pd.to_numeric(user_row.get(col, 0), errors="coerce") or 0
-
-        user_name = user_row.get("name", "User")
-
-        currency_map = {
-            "INR": "₹",
-            "USD": "$",
-            "EUR": "€",
-            "GBP": "£",
-            "CAD": "C$",
-            "AUD": "A$",
-            "JPY": "¥",
-            "SGD": "S$",
-            "AED": "د.إ",
-            "MYR": "RM"
-        }
-
-        currency_code = str(user_row.get("currency", "INR")).upper()
-        currency_symbol = currency_map.get(currency_code, "₹")
-
-        monthly_income = get("income")
-        rent = get("rent")
-        food = get("food")
-        transport = get("transport")
-        utilities = get("utilities")
-        entertainment = get("entertainment")
-        healthcare = get("healthcare")
-        other = get("other")
-
-        inflation_rate = float(user_row.get("inflation", 0))
-
-    else:
-        st.warning("📂 Please upload a file")
-        st.stop()
-# ---------------- INFLATION RATE INPUT ----------------
-st.sidebar.markdown("---")
-st.sidebar.subheader("📈 Inflation Adjustment")
-
-inflation_rate = st.sidebar.slider(
-    "Select Inflation Rate (%)",
-    min_value=0.0,
-    max_value=20.0,
-    value=6.0,
-    step=0.5
-)
-
-# ---------------- OPTIONAL EXCEL UPLOAD ----------------
-st.sidebar.markdown("---")
-st.sidebar.subheader("📂 Upload Excel File (Optional)")
-uploaded_file = st.sidebar.file_uploader("Upload Excel File", type=["xlsx", "xls", "csv"])
-
-excel_data_loaded = False
-
-if uploaded_file is not None:
-    try:
-        if uploaded_file.name.endswith(".csv"):
-            df_uploaded = pd.read_csv(uploaded_file)
-        else:
-            df_uploaded = pd.read_excel(uploaded_file)
-
-        st.sidebar.success("✅ Excel file uploaded successfully!")
-        st.sidebar.write("Columns detected:", list(df_uploaded.columns))
-
-        # Try to auto-map first row if matching columns exist
-        cols_lower = [col.lower() for col in df_uploaded.columns]
-
-        if "monthly_income" in cols_lower:
-            monthly_income = float(df_uploaded.iloc[0, cols_lower.index("monthly_income")])
-        if "rent" in cols_lower:
-            rent = float(df_uploaded.iloc[0, cols_lower.index("rent")])
-        if "food" in cols_lower:
-            food = float(df_uploaded.iloc[0, cols_lower.index("food")])
-        if "transport" in cols_lower:
-            transport = float(df_uploaded.iloc[0, cols_lower.index("transport")])
-        if "utilities" in cols_lower:
-            utilities = float(df_uploaded.iloc[0, cols_lower.index("utilities")])
-        if "entertainment" in cols_lower:
-            entertainment = float(df_uploaded.iloc[0, cols_lower.index("entertainment")])
-        if "healthcare" in cols_lower:
-            healthcare = float(df_uploaded.iloc[0, cols_lower.index("healthcare")])
-        if "other" in cols_lower:
-            other = float(df_uploaded.iloc[0, cols_lower.index("other")])
-        if "name" in cols_lower:
-            user_name = str(df_uploaded.iloc[0, cols_lower.index("name")])
-
-        excel_data_loaded = True
-
-    except Exception as e:
-        st.sidebar.error(f"❌ Error reading file: {e}")
-
-# ---------------- CALCULATIONS ----------------
-base_expenses = rent + food + transport + utilities + entertainment + healthcare + other
-inflation_multiplier = 1 + (inflation_rate / 100)
-inflation_adjusted_expenses = base_expenses * inflation_multiplier
-monthly_savings = monthly_income - base_expenses
-inflation_adjusted_savings = monthly_income - inflation_adjusted_expenses
-
-savings_rate = (monthly_savings / monthly_income * 100) if monthly_income > 0 else 0
-expense_ratio = (base_expenses / monthly_income * 100) if monthly_income > 0 else 0
-inflation_expense_ratio = (inflation_adjusted_expenses / monthly_income * 100) if monthly_income > 0 else 0
-
-# Budget health score (0 to 100)
-budget_health_score = max(0, min(100, savings_rate))
-
 # ---------------- PERSONALIZED GREETING ----------------
+user_name = "Pugazh"
 st.markdown(f"## 👋 Welcome, {user_name}!")
 
-if excel_data_loaded:
-    st.info("📂 Your uploaded Excel data has been applied to the dashboard automatically.")
 
+
+# ==========================================================
+# KPI
+# ==========================================================
 # ---------------- METRICS ----------------
 st.markdown("## 📌 Financial Summary")
 
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric("Monthly Income", f"{currency_symbol}{monthly_income:,.2f}")
+    st.metric("Monthly Income", f"{symbol}{monthly_income:,.2f}")
 
 with col2:
-    st.metric("Base Expenses", f"{currency_symbol}{base_expenses:,.2f}")
+    st.metric("Base Expenses", f"{symbol}{base_expenses:,.2f}")
 
 with col3:
-    st.metric("Monthly Savings", f"{currency_symbol}{monthly_savings:,.2f}")
+    st.metric("Monthly Savings", f"{symbol}{monthly_savings:,.2f}")
 
 with col4:
     st.metric("Savings Rate", f"{savings_rate:.2f}%")
@@ -282,7 +242,7 @@ with col5:
     st.metric("Inflation Rate", f"{inflation_rate:.2f}%")
 
 with col6:
-    st.metric("Inflation Adjusted Expenses", f"{currency_symbol}{inflation_adjusted_expenses:,.2f}")
+    st.metric("Inflation Adjusted Expenses", f"{symbol}{inflation_adjusted_expenses:,.2f}")
 
 with col7:
     st.metric("Adjusted Savings", f"{currency_symbol}{inflation_adjusted_savings:,.2f}")
@@ -533,16 +493,30 @@ elif inflation_expense_ratio > 80:
 else:
     st.success("✅ Your financial plan is still sustainable even after inflation adjustment.")
 
-# -----------------------------
-# Optional Dataset Upload
-# -----------------------------
-st.markdown("## 📂 Optional Dataset Viewer")
-uploaded_file = st.file_uploader("Upload an Excel file (optional)", type=["xlsx"])
+# ==========================================================
+# EXCEL FORMAT
+# ==========================================================
+st.markdown("## 📂 Excel Upload Recommended Format")
 
-if uploaded_file is not None:
-    try:
-        df = pd.read_excel(uploaded_file)
-        st.success("Excel file uploaded successfully!")
-        st.dataframe(df, use_container_width=True)
-    except Exception as e:
-        st.error(f"Error reading file: {e}")
+sample = pd.DataFrame({
+"Name":["Pugazh"],
+"Income":[50000],
+"Rent":[15000],
+"Food":[7000],
+"Transport":[3000],
+"Utilities":[4000],
+"Entertainment":[2500],
+"Healthcare":[2000],
+"Other":[1500]
+})
+
+st.dataframe(sample, use_container_width=True)
+
+if df is not None:
+    st.markdown("## 📄 Uploaded Dataset Preview")
+    st.dataframe(df, use_container_width=True)
+
+# ---------------- FOOTER ----------------
+st.markdown("---")
+st.markdown("### 🌟 LifeCost AI helps you make smarter financial decisions with visual analytics, inflation intelligence, and premium dashboard insights.")
+st.caption("Developed for MBA Project Presentation | Streamlit + Python + Plotly")
