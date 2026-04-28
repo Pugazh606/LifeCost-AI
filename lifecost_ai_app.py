@@ -1,3 +1,4 @@
+from pyparsing import col
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -165,22 +166,25 @@ elif input_mode == "Excel Upload":
 
         currency_code = str(user_row.get("currency", "INR")).upper()
         currency_symbol = currency_map.get(currency_code, "₹")
+        st.sidebar.header("📥 Enter Monthly Financial Details")
 
-        monthly_income = get("income")
-        rent = get("rent")
-        food = get("food")
-        transport = get("transport")
-        utilities = get("utilities")
-        entertainment = get("entertainment")
-        healthcare = get("healthcare")
-        other = get("other")
+        def safe_get(row, col):
+            return float(pd.to_numeric(row.get(col, 0), errors="coerce"))
+
+        monthly_income = st.sidebar.number_input("Monthly Income", 0.0, 50000000.0, safe_get(user_row, "income"), step=1000.0)
+        rent = st.sidebar.number_input("Rent", 0.0, 500000.0, safe_get(user_row, "rent"), step=500.0)
+        food = st.sidebar.number_input("Food", 0.0, 100000.0, safe_get(user_row, "food"), step=100.0)
+        transport = st.sidebar.number_input("Transport", 0.0, 100000.0, safe_get(user_row, "transport"), step=100.0)
+        utilities = st.sidebar.number_input("Utilities", 0.0, 100000.0, safe_get(user_row, "utilities"), step=100.0)
+        entertainment = st.sidebar.number_input("Entertainment", 0.0, 100000.0, safe_get(user_row, "entertainment"), step=100.0)
+        healthcare = st.sidebar.number_input("Healthcare", 0.0, 100000.0, safe_get(user_row, "healthcare"), step=100.0)
+        other = st.sidebar.number_input("Other", 0.0, 100000.0, safe_get(user_row, "other"), step=100.0)
 
         inflation_rate = float(user_row.get("inflation", 0))
 
     else:
         st.warning("📂 Please upload a file")
-        st.stop()
-# ---------------- INFLATION RATE INPUT ----------------
+        st.stop()# ---------------- INFLATION RATE INPUT ----------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("📈 Inflation Adjustment")
 
