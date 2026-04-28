@@ -112,14 +112,14 @@ if input_mode == "Manual Entry":
     currency = st.sidebar.selectbox("Select Currency", ["INR (₹)", "USD ($)", "EUR (€)", "GBP (£)"])
     currency_symbol = currency.split("(")[1].replace(")", "")
 
-    monthly_income = st.sidebar.number_input("Monthly Income", 0.0, 50000.0, 50000.0)
-    rent = st.sidebar.number_input("Rent", 0.0, 20000.0, 15000.0)
-    food = st.sidebar.number_input("Food", 0.0, 10000.0, 7000.0)
-    transport = st.sidebar.number_input("Transport", 0.0, 5000.0, 3000.0)
-    utilities = st.sidebar.number_input("Utilities", 0.0, 5000.0, 4000.0)
-    entertainment = st.sidebar.number_input("Entertainment", 0.0, 5000.0, 2500.0)
-    healthcare = st.sidebar.number_input("Healthcare", 0.0, 5000.0, 2000.0)
-    other = st.sidebar.number_input("Other", 0.0, 5000.0, 3000.0)
+    monthly_income = st.sidebar.number_input("Monthly Income", 0.0, 50000000.0, 0.0,step=1000.0)
+    rent = st.sidebar.number_input("Rent", 0.0, 40000.0, 0.0,step=500.0)
+    food = st.sidebar.number_input("Food", 0.0, 10000.0, 0.0,step=100.0)
+    transport = st.sidebar.number_input("Transport", 0.0, 5000.0, 0.0,step=100.0)
+    utilities = st.sidebar.number_input("Utilities", 0.0, 5000.0, 0.0,step=100.0)
+    entertainment = st.sidebar.number_input("Entertainment", 0.0, 5000.0, 0.0,step=100.0)
+    healthcare = st.sidebar.number_input("Healthcare", 0.0, 5000.0, 0.0,step=100.0)
+    other = st.sidebar.number_input("Other", 0.0, 5000.0, 0.0,step=100.0)
 
 elif input_mode == "Excel Upload":
 
