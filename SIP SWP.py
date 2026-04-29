@@ -86,18 +86,36 @@ if calc_type == "SIP Calculator":
 # ---------------- SWP CALCULATOR ---------------- #
 else:
 
-    corpus = st.sidebar.number_input("Initial Corpus (₹)", 100000, 100000000, 1000000,step=100)
-    monthly_withdrawal = st.sidebar.number_input("Monthly Withdrawal (₹)", 1000, 1000000, 10000,step=100)
+    corpus = st.sidebar.number_input(
+        "Initial Corpus (₹)",
+        min_value=100000,
+        max_value=100000000,
+        value=1000000,
+        step=1000
+    )
+
+    monthly_withdrawal = st.sidebar.number_input(
+        "Monthly Withdrawal (₹)",
+        min_value=1000,
+        max_value=1000000,
+        value=10000,
+        step=100
+    )
 
     months = years * 12
     balance = corpus
+    total_withdrawn = 0
     records = []
 
     for month in range(1, months + 1):
-        balance = balance * (1 + monthly_rate)
-        balance -= monthly_withdrawal
 
-        if balance < 0:
+        balance = balance * (1 + monthly_rate)
+
+        if balance >= monthly_withdrawal:
+            balance -= monthly_withdrawal
+            total_withdrawn += monthly_withdrawal
+        else:
+            total_withdrawn += balance
             balance = 0
 
         records.append([month, balance])
@@ -107,16 +125,20 @@ else:
 
     df = pd.DataFrame(records, columns=["Month", "Balance"])
 
-    final_balance = balance
+    final_value = balance
+    wealth_gained = total_withdrawn + final_value - corpus
 
-    col1, col2 = st.columns(2)
-    col1.metric("🏦 Initial Corpus", f"₹{corpus:,.0f}")
-    col2.metric("💰 Remaining Balance", f"₹{final_balance:,.0f}")
+    # Metrics
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("💵 Total Invested", f"₹{corpus:,.0f}")
+    col2.metric("📈 Wealth Gained", f"₹{wealth_gained:,.0f}")
+    col3.metric("🏆 Final Value", f"₹{final_value:,.0f}")
 
     # Gauge Chart
     fig_gauge = go.Figure(go.Indicator(
         mode="gauge+number",
-        value=final_balance,
+        value=final_value,
         title={'text': "Remaining Corpus"},
         gauge={
             'axis': {'range': [0, corpus]},
@@ -130,6 +152,11 @@ else:
     ))
 
     st.plotly_chart(fig_gauge, use_container_width=True)
+
+    # Graph
+    fig = px.line(df, x="Month", y="Balance",
+                  title="SWP Balance Over Time")
+    st.plotly_chart(fig, use_container_width=True)
 
     # Balance Chart
     fig = px.line(df, x="Month", y="Balance",
